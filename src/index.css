@@ -1,13 +1,118 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+    
+    /* Primary Colors */
+    --background: 0 0% 93.7%;
+    --foreground: 0 0% 0%;
+    --primary: 0 0% 0%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary Colors */
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 46.9%;
+
+    /* UI Elements */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --border: 0 0% 91.4%;
+    --input: 0 0% 91.4%;
+    --ring: 0 0% 0%;
+
+    /* Additional colors for compatibility */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+
+    /* Grid patterns */
+    --grid-light: 0 0% 88%;
+
+    /* Neomorphic effects */
+    --neomorphic-outer-start: 0 0% 96%;
+    --neomorphic-outer-end: 0 0% 88%;
+    --neomorphic-middle: 0 0% 85%;
+    --neomorphic-inner: 0 0% 100%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+@layer components {
+  /* Main page grid background - very subtle */
+  .grid-background {
+    background-image: 
+      linear-gradient(hsl(var(--grid-light)) 0.5px, transparent 0.5px),
+      linear-gradient(90deg, hsl(var(--grid-light)) 0.5px, transparent 0.5px);
+    background-size: 40px 40px;
+    opacity: 0.15;
+  }
+
+  /* Remove grid from card interiors only */
+  .no-grid-background {
+    background: hsl(var(--card));
+    background-image: none !important;
+  }
+
+  /* Subtle grid for graphs */
+  .graph-grid-background {
+    background-image: 
+      linear-gradient(hsl(var(--grid-light)) 0.3px, transparent 0.3px),
+      linear-gradient(90deg, hsl(var(--grid-light)) 0.3px, transparent 0.3px);
+    background-size: 20px 20px;
+    opacity: 0.2;
+  }
+
+  /* Neomorphic effects */
+  .neomorphic-icon {
+    background: linear-gradient(180deg, hsl(var(--neomorphic-outer-start)) 0%, hsl(var(--neomorphic-outer-end)) 100%);
+    border-radius: 50%;
+    position: relative;
+  }
+
+  .neomorphic-icon::before {
+    content: '';
+    position: absolute;
+    inset: 0.25rem;
+    border-radius: 50%;
+    background: hsl(var(--neomorphic-middle));
+  }
+
+  .neomorphic-icon::after {
+    content: '';
+    position: absolute;
+    inset: 0.5rem;
+    border-radius: 50%;
+    background: hsl(var(--neomorphic-inner));
+  }
+
+  .neomorphic-icon > * {
+    position: relative;
+    z-index: 10;
+  }
 }
