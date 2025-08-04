@@ -2,11 +2,11 @@ import React from 'react';
 import { Settings, Save } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { Select } from './ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
 import { WarehouseConfig, PackingStats } from '../types/warehouse';
+import { BED_SIZE_LIMITS } from '../lib/constants';
 
 interface ModernConfigPanelProps {
   config: WarehouseConfig;
@@ -48,24 +48,28 @@ export const ModernConfigPanel: React.FC<ModernConfigPanelProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-sm font-medium text-muted-foreground mb-1 block whitespace-nowrap">
-                Storage Width
+                Width (mm)
               </Label>
               <Input
-                type="text"
-                value="50cm"
-                disabled
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-inter transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+                type="number"
+                value={config.storageWidth}
+                onChange={(e) => handleInputChange('storageWidth', Number(e.target.value))}
+                disabled={disabled}
+                min={BED_SIZE_LIMITS.MIN_WIDTH}
+                max={BED_SIZE_LIMITS.MAX_WIDTH}
               />
             </div>
             <div>
               <Label className="text-sm font-medium text-muted-foreground mb-1 block whitespace-nowrap">
-                Storage Length
+                Length (mm)
               </Label>
               <Input
-                type="text"
-                value="50cm"
-                disabled
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-inter transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50"
+                type="number"
+                value={config.storageLength}
+                onChange={(e) => handleInputChange('storageLength', Number(e.target.value))}
+                disabled={disabled}
+                min={BED_SIZE_LIMITS.MIN_WIDTH}
+                max={BED_SIZE_LIMITS.MAX_WIDTH}
               />
             </div>
           </div>
@@ -75,16 +79,20 @@ export const ModernConfigPanel: React.FC<ModernConfigPanelProps> = ({
             <Label className="text-sm font-medium text-muted-foreground mb-1 block whitespace-nowrap">
               Number of Rectangles
             </Label>
-            <select
-              value={config.numRectangles}
-              onChange={(e) => handleInputChange('numRectangles', Number(e.target.value))}
+            <Select
+              value={config.numRectangles.toString()}
+              onValueChange={(value) => handleInputChange('numRectangles', Number(value))}
               disabled={disabled}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-inter transition-all duration-200 focus:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select number of boxes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="75">75</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -105,16 +113,20 @@ export const ModernConfigPanel: React.FC<ModernConfigPanelProps> = ({
               <Label className="text-sm font-medium text-muted-foreground mb-1 block whitespace-nowrap">
                 Max Side (cm)
               </Label>
-              <select
-                value={config.maxSide}
-                onChange={(e) => handleInputChange('maxSide', Number(e.target.value))}
+              <Select
+                value={config.maxSide.toString()}
+                onValueChange={(value) => handleInputChange('maxSide', Number(value))}
                 disabled={disabled}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-inter transition-all duration-200 focus:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <option value={150}>15cm</option>
-                <option value={200}>20cm</option>
-                <option value={250}>25cm</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select max size" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="150">15cm</SelectItem>
+                  <SelectItem value="200">20cm</SelectItem>
+                  <SelectItem value="250">25cm</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -122,16 +134,20 @@ export const ModernConfigPanel: React.FC<ModernConfigPanelProps> = ({
             <Label className="text-sm font-medium text-muted-foreground mb-1 block whitespace-nowrap">
               Clearance (cm)
             </Label>
-            <select
-              value={config.clearance}
-              onChange={(e) => handleInputChange('clearance', Number(e.target.value))}
+            <Select
+              value={config.clearance.toString()}
+              onValueChange={(value) => handleInputChange('clearance', Number(value))}
               disabled={disabled}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-inter transition-all duration-200 focus:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value={10}>1cm</option>
-              <option value={20}>2cm</option>
-              <option value={30}>3cm</option>
-            </select>
+              <SelectTrigger>
+                <SelectValue placeholder="Select clearance" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">1cm</SelectItem>
+                <SelectItem value="20">2cm</SelectItem>
+                <SelectItem value="30">3cm</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

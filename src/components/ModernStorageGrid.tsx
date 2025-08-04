@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { Play, Pause, RotateCcw, Home, Square } from 'lucide-react';
 import { Button } from './ui/button';
-import { Card, CardContent } from './ui/card';
+import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Box, SimulationState, PackingStats } from '../types/warehouse';
 
@@ -271,7 +271,7 @@ export const ModernStorageGrid: React.FC<ModernStorageGridProps> = ({
                 <h2 className="text-lg font-bold">Storage Grid</h2>
               </div>
               <Badge variant="muted">
-                {config.storageWidth}×{config.storageLength} units
+{config.storageWidth}×{config.storageLength}mm
               </Badge>
             </div>
             

@@ -1,15 +1,17 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ArrowLeft, Package } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { ModernStorageGrid } from './components/ModernStorageGrid';
 import { ModernConfigPanel } from './components/ModernConfigPanel';
 import { StatsCards } from './components/StatsCards';
+import { NavbarConnectionStatus } from './components/warehouse/NavbarConnectionStatus';
 import { PackingAlgorithm } from './lib/packingAlgorithm';
+import { useMoonrakerConnection } from './hooks/useMoonrakerConnection';
 import { Box, WarehouseConfig, SimulationState, SimulationMode, PackingStats, Position } from './types/warehouse';
 
 const defaultConfig: WarehouseConfig = {
-  storageWidth: 500,  // 50cm
-  storageLength: 500, // 50cm
+  storageWidth: 400,  // 40cm - matches printer config
+  storageLength: 400, // 40cm - matches printer config
   numRectangles: 50,
   minSide: 50,        // 5cm (small boxes)
   maxSide: 50,        // 5cm (small boxes)
@@ -20,6 +22,7 @@ function App() {
   const [config, setConfig] = useState<WarehouseConfig>(defaultConfig);
   const [appliedConfig, setAppliedConfig] = useState<WarehouseConfig>(defaultConfig);
   const [boxes, setBoxes] = useState<Box[]>([]);
+  const { isConnected, setServer, connect } = useMoonrakerConnection();
   const [simulationState, setSimulationState] = useState<SimulationState>({
     mode: SimulationMode.IDLE,
     step: 0,
@@ -159,15 +162,22 @@ function App() {
       generateAndPackBoxes(currentConfig);
       return currentConfig;
     });
-  }, [animationInterval]);
+  }, [animationInterval, generateAndPackBoxes]);
 
-  const handleHome = useCallback(() => {
-    // TODO: Implement home command to physical system
-    console.log('Homing system...');
-    
-    // Provide user feedback
-    if (window.confirm('Send homing command to the physical system?')) {
-      alert('Homing command sent to CoreXY system');
+  const handleHome = useCallback(async () => {
+    try {
+      console.log('Homing system...');
+      
+      // Import the MoonrakerAPI dynamically to avoid circular dependencies
+      const { MoonrakerAPI } = await import('./lib/moonraker-api');
+      
+      if (window.confirm('Send homing command to the physical system?')) {
+        await MoonrakerAPI.homeSystem();
+        alert('Homing command sent to CoreXY system');
+      }
+    } catch (error) {
+      console.error('Failed to home system:', error);
+      alert('Failed to home system. Check connection to Moonraker.');
     }
   }, []);
 
@@ -188,7 +198,14 @@ function App() {
       generateAndPackBoxes(currentConfig);
       return currentConfig; // Don't change the config, just trigger the generation
     });
-  }, []);
+  }, [generateAndPackBoxes]);
+
+  const handleConnectionChange = useCallback((ipPort: string) => {
+    const [host, port] = ipPort.split(':');
+    setServer(host, port);
+    // Attempt to reconnect with new settings
+    connect(host, port).catch(console.error);
+  }, [setServer, connect]);
 
   useEffect(() => {
     generateAndPackBoxes(defaultConfig);
@@ -202,7 +219,7 @@ function App() {
       <div className="relative z-10">
       {/* Header */}
       <header className="bg-background border-b border-border sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <Button variant="ghost" className="gap-2">
               <ArrowLeft className="w-4 h-4" />
@@ -211,7 +228,7 @@ function App() {
             
             {/* Centered Title */}
             <div className="flex items-center gap-3">
-              <div className="neomorphic-icon w-12 h-12 flex items-center justify-center">
+              <div className="neomorphic-icon w-10 h-10 flex items-center justify-center">
                 <Package className="w-5 h-5" />
               </div>
               <div className="text-center">
@@ -220,19 +237,25 @@ function App() {
               </div>
             </div>
             
-            <div className="w-9 h-9"></div>
+            {/* Connection Status in Navbar */}
+            <div className="flex items-center gap-3">
+              <NavbarConnectionStatus
+                onIpChange={handleConnectionChange}
+                isConnected={isConnected}
+              />
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto p-2 sm:p-4 bg-background min-h-[calc(100vh-6rem)] lg:h-[calc(100vh-6rem)]">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-4 h-full">
+      <div className="max-w-7xl mx-auto p-2 sm:p-4 bg-background">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-4">
           {/* Left sidebar with Configuration Panel and Stats Cards */}
-          <div className="lg:col-span-1 order-2 lg:order-1 h-auto lg:h-full">
-            <div className="h-full flex flex-col gap-4">
-              {/* Configuration Panel - flex-grow to take available space */}
-              <div className="flex-1 min-h-0">
+          <div className="lg:col-span-1 order-2 lg:order-1">
+            <div className="flex flex-col gap-3">
+              {/* Configuration Panel */}
+              <div className="h-[400px] lg:h-[460px]">
                 <ModernConfigPanel
                   config={config}
                   stats={stats}
@@ -242,30 +265,32 @@ function App() {
                 />
               </div>
               
-              {/* Statistics Cards - 2x2 Grid - fixed height */}
-              <div className="h-32">
+              {/* Statistics Cards - 2x2 Grid */}
+              <div className="h-20">
                 <StatsCards stats={stats} />
               </div>
             </div>
           </div>
 
           {/* Storage Grid - Right side */}
-          <div className="lg:col-span-3 order-1 lg:order-2 h-auto lg:h-full min-h-[400px] lg:min-h-[500px]">
-            <ModernStorageGrid
-              boxes={boxes}
-              config={{
-                storageWidth: appliedConfig.storageWidth,
-                storageLength: appliedConfig.storageLength,
-                clearance: appliedConfig.clearance
-              }}
-              simulationState={simulationState}
-              stats={stats}
-              onBoxClick={handleBoxClick}
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onReset={handleReset}
-              onHome={handleHome}
-            />
+          <div className="lg:col-span-3 order-1 lg:order-2">
+            <div className="h-[400px] lg:h-[483px]">
+              <ModernStorageGrid
+                boxes={boxes}
+                config={{
+                  storageWidth: appliedConfig.storageWidth,
+                  storageLength: appliedConfig.storageLength,
+                  clearance: appliedConfig.clearance
+                }}
+                simulationState={simulationState}
+                stats={stats}
+                onBoxClick={handleBoxClick}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onReset={handleReset}
+                onHome={handleHome}
+              />
+            </div>
           </div>
         </div>
       </div>

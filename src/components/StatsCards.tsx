@@ -1,5 +1,6 @@
 import React from 'react';
-import { Card, CardContent } from './ui/card';
+import { Clock, Package, Zap, Target } from 'lucide-react';
+import { StatsCard } from './warehouse/StatsCard';
 import { PackingStats } from '../types/warehouse';
 
 interface StatsCardsProps {
@@ -7,48 +8,40 @@ interface StatsCardsProps {
 }
 
 export const StatsCards: React.FC<StatsCardsProps> = ({ stats }) => {
-  const StatCard = ({ 
-    label, 
-    value, 
-    unit
-  }: { 
-    label: string, 
-    value: number | string, 
-    unit?: string
-  }) => (
-    <Card className="text-center">
-      <CardContent className="p-2 h-full flex flex-col justify-center">
-        <div className="text-sm font-bold text-foreground mb-1 font-inter">
-          {value}
-        </div>
-        <div className="text-xs text-muted-foreground leading-tight">
-          {label}
-          {unit && <span className="text-xs ml-1">{unit}</span>}
-        </div>
-      </CardContent>
-    </Card>
-  );
+  const getEfficiencyVariant = (value: number) => {
+    if (value >= 80) return 'success';
+    if (value >= 60) return 'warning';
+    return 'error';
+  };
 
   return (
     <div className="h-full grid grid-cols-2 gap-2">
-      <StatCard
-        label="Boxes Packed"
-        value={stats.boxesPacked}
+      <StatsCard
+        title="Boxes Packed"
+        value={`${stats.boxesPacked}/${stats.totalBoxes}`}
+        icon={<Package className="w-4 h-4" />}
+        variant={stats.boxesPacked === stats.totalBoxes ? 'success' : 'default'}
       />
-      <StatCard
-        label="Space Efficiency"
+      <StatsCard
+        title="Space Efficiency"
         value={stats.spaceEfficiency}
         unit="%"
+        icon={<Target className="w-4 h-4" />}
+        variant={getEfficiencyVariant(stats.spaceEfficiency)}
       />
-      <StatCard
-        label="Time Efficiency"
+      <StatsCard
+        title="Time Efficiency"
         value={stats.timeEfficiency}
         unit="%"
+        icon={<Zap className="w-4 h-4" />}
+        variant={getEfficiencyVariant(stats.timeEfficiency)}
       />
-      <StatCard
-        label="Solved In"
+      <StatsCard
+        title="Solved In"
         value={stats.solvedIn.toFixed(1)}
         unit="s"
+        icon={<Clock className="w-4 h-4" />}
+        variant={stats.solvedIn < 3 ? 'success' : 'default'}
       />
     </div>
   );
