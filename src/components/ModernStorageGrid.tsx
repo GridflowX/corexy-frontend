@@ -53,13 +53,16 @@ export const ModernStorageGrid: React.FC<ModernStorageGridProps> = ({
   }, []);
 
   const canvasSize = useMemo(() => {
-    // Responsive canvas size - reduced to fit page better
-    const { width: vw, height: vh } = windowSize;
+    // Adaptive canvas size based on bed dimensions and viewport
+    const { width: vw } = windowSize;
     
-    if (vw < 768) return 300; // Mobile
-    if (vw < 1024) return 380; // Tablet
-    if (vh < 800) return 400; // Short screens
-    return 450; // Desktop - reduced to fit page
+    let baseSize;
+    if (vw < 768) baseSize = 320; // Mobile
+    else if (vw < 1024) baseSize = 400; // Tablet
+    else baseSize = 480; // Desktop
+    
+    // For now, keep canvas size reasonable and consistent
+    return baseSize;
   }, [windowSize]);
 
   const scale = useMemo(() => {
@@ -73,49 +76,33 @@ export const ModernStorageGrid: React.FC<ModernStorageGridProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas with light background to match reference
-    ctx.fillStyle = '#fafafa';
+    // Clear canvas with white background
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw dotted grid pattern like in reference images
-    ctx.fillStyle = '#d1d5db';
-    const dotSpacing = 20 * scale; // Spacing between dots
-    const dotSize = 1; // Size of each dot
-    
-    // Create dotted grid pattern
-    for (let x = dotSpacing; x < canvas.width; x += dotSpacing) {
-      for (let y = dotSpacing; y < canvas.height; y += dotSpacing) {
-        ctx.beginPath();
-        ctx.arc(x, y, dotSize, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-    }
-
-    // Draw subtle border lines for major grid sections
+    // Draw simple grid lines
     ctx.strokeStyle = '#e5e7eb';
-    ctx.lineWidth = 0.5;
-    ctx.setLineDash([2, 2]);
-    const majorGridSize = 100 * scale;
-    for (let x = majorGridSize; x < canvas.width; x += majorGridSize) {
+    ctx.lineWidth = 1;
+    
+    // Draw grid lines every 50 units (5cm)
+    const gridSize = 50 * scale;
+    for (let x = 0; x <= canvas.width; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, canvas.height);
       ctx.stroke();
     }
-    for (let y = majorGridSize; y < canvas.height; y += majorGridSize) {
+    for (let y = 0; y <= canvas.height; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
       ctx.lineTo(canvas.width, y);
       ctx.stroke();
     }
-    ctx.setLineDash([]); // Reset dash pattern
 
-    // Draw storage boundary with subtle border like in reference
-    ctx.strokeStyle = '#6b7280';
+    // Draw storage boundary
+    ctx.strokeStyle = '#374151';
     ctx.lineWidth = 2;
-    ctx.setLineDash([8, 4]);
-    ctx.strokeRect(2, 2, config.storageWidth * scale - 4, config.storageLength * scale - 4);
-    ctx.setLineDash([]); // Reset dash pattern
+    ctx.strokeRect(0, 0, config.storageWidth * scale, config.storageLength * scale);
 
     // Draw current path
     if (simulationState.currentPath && simulationState.currentPath.length > 0) {
@@ -260,9 +247,9 @@ export const ModernStorageGrid: React.FC<ModernStorageGridProps> = ({
     <div className={`relative h-full ${className}`}>
       {/* Main Canvas Container */}
       <Card className="relative overflow-hidden h-full flex flex-col">
-        <div className="flex-1 flex flex-col relative">
+        <div className="flex-1 flex flex-col">
           {/* Header with controls */}
-          <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between">
+          <div className="p-4 flex items-center justify-between border-b border-border">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <div className="neomorphic-icon w-8 h-8 flex items-center justify-center">
@@ -298,70 +285,31 @@ export const ModernStorageGrid: React.FC<ModernStorageGridProps> = ({
           </div>
 
           {/* Canvas */}
-          <div className="flex-1 flex justify-center items-center relative">
-            <div className="graph-grid-background absolute inset-8 rounded-lg"></div>
-            <canvas
-              ref={canvasRef}
-              width={canvasSize}
-              height={canvasSize}
-              className="border border-border rounded-lg cursor-pointer bg-background/80 shadow-sm relative z-10 max-w-full max-h-full"
-              onClick={handleCanvasClick}
-            />
+          <div className="flex-1 flex justify-center items-center p-6 min-h-0">
+            <div className="relative">
+              <canvas
+                ref={canvasRef}
+                width={canvasSize}
+                height={canvasSize}
+                className="border border-border rounded-lg cursor-pointer bg-background shadow-sm"
+                onClick={handleCanvasClick}
+              />
+            </div>
           </div>
 
           {/* Status Bar */}
-          <div className="absolute bottom-4 left-4 right-4 z-10">
-            <Card className="p-3">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-sm">
-                    <span className="text-muted-foreground">
-                      Step: <span className="font-medium text-foreground">{simulationState.step}</span> / {simulationState.totalSteps}
-                    </span>
-                    <span className="text-muted-foreground">
-                      Mode: <Badge variant="muted" className="ml-1">{simulationState.mode}</Badge>
-                    </span>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="flex-1 mx-4">
-                    <div className="w-full bg-secondary rounded-full h-2">
-                      <div
-                        className="bg-primary h-2 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${simulationState.totalSteps > 0 ? (simulationState.step / simulationState.totalSteps) * 100 : 0}%`
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 text-sm">
-                    <span className="text-muted-foreground">
-                      Boxes: <span className="font-medium text-foreground">{stats.boxesPacked}</span>
-                    </span>
-                    <span className="text-muted-foreground">
-                      Efficiency: <span className="font-medium text-foreground">{stats.spaceEfficiency}%</span>
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Legend */}
-                <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-gray-600 border border-gray-700 rounded-sm"></div>
-                    <span>Packed boxes</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-amber-500 border border-amber-600 rounded-sm"></div>
-                    <span>Selected</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-emerald-500 border border-emerald-600 rounded-sm"></div>
-                    <span>In motion</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
+          <div className="border-t border-border p-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                Boxes: <span className="font-medium text-foreground">{stats.boxesPacked}</span> / {stats.totalBoxes}
+              </span>
+              <span className="text-muted-foreground">
+                Efficiency: <span className="font-medium text-foreground">{stats.spaceEfficiency}%</span>
+              </span>
+              <span className="text-muted-foreground">
+                Container: {config.storageWidth}×{config.storageLength}mm
+              </span>
+            </div>
           </div>
         </div>
       </Card>

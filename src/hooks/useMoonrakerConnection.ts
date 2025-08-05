@@ -19,6 +19,7 @@ interface UseMoonrakerConnectionReturn {
   isConnected: boolean;
   error: string | null;
   setServer: (host: string, port?: string) => void;
+  currentServer: { host: string; port: string };
 }
 
 export const useMoonrakerConnection = (): UseMoonrakerConnectionReturn => {
@@ -30,6 +31,10 @@ export const useMoonrakerConnection = (): UseMoonrakerConnectionReturn => {
     connected: false,
   });
   const [error, setError] = useState<string | null>(null);
+  const [currentServer, setCurrentServer] = useState<{ host: string; port: string }>({
+    host: 'localhost',
+    port: '7125'
+  });
 
   const connect = useCallback(async (host?: string, port?: string) => {
     try {
@@ -119,6 +124,9 @@ export const useMoonrakerConnection = (): UseMoonrakerConnectionReturn => {
     // Update API server
     MoonrakerAPI.setServer(host, port);
     
+    // Update local state
+    setCurrentServer({ host, port });
+    
     // Update WebSocket server
     if (websocket) {
       websocket.setServer(host, port);
@@ -147,5 +155,6 @@ export const useMoonrakerConnection = (): UseMoonrakerConnectionReturn => {
     setServer,
     isConnected: websocket?.isConnected() || false,
     error,
+    currentServer,
   };
 };

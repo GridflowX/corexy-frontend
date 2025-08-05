@@ -41,28 +41,17 @@ export const StatsCard: React.FC<StatsCardProps> = ({
           )}
         </div>
         
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-1">
-            <span className={cn(
-              'text-sm font-bold leading-none',
-              variantStyles[variant]
-            )}>
-              {value}
+        <div className="flex items-baseline gap-1">
+          <span className={cn(
+            'text-sm font-bold leading-none',
+            variantStyles[variant]
+          )}>
+            {value}
+          </span>
+          {unit && (
+            <span className="text-xs text-muted-foreground leading-none">
+              {unit}
             </span>
-            {unit && (
-              <span className="text-xs text-muted-foreground leading-none">
-                {unit}
-              </span>
-            )}
-          </div>
-          
-          {variant !== 'default' && (
-            <div className={cn(
-              'w-2 h-2 rounded-full',
-              variant === 'success' && 'bg-green-500',
-              variant === 'warning' && 'bg-yellow-500',
-              variant === 'error' && 'bg-red-500'
-            )} />
           )}
         </div>
       </CardContent>

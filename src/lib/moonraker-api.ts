@@ -96,8 +96,33 @@ export class MoonrakerAPI {
     });
   }
 
+  // Connection Testing
+  static async testConnection(): Promise<{ success: boolean; error?: string; info?: any }> {
+    try {
+      const info = await this.getServerInfo();
+      return { success: true, info };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  static async getServerInfo(): Promise<any> {
+    return this.request(MOONRAKER_ENDPOINTS.SERVER_INFO);
+  }
+
   // System Commands
+  static async executeGcode(command: string): Promise<string> {
+    console.log(`[MoonrakerAPI] Executing G-code: ${command}`);
+    console.log(`[MoonrakerAPI] Server: ${this.getCurrentServer().host}:${this.getCurrentServer().port}`);
+    return this.sendGcode(command);
+  }
+
   static async homeSystem(): Promise<string> {
+    console.log(`[MoonrakerAPI] Homing system...`);
+    console.log(`[MoonrakerAPI] Server: ${this.getCurrentServer().host}:${this.getCurrentServer().port}`);
     return this.sendGcode(GCODE_COMMANDS.HOME_ALL);
   }
 

@@ -42,6 +42,21 @@ export enum SimulationMode {
   IDLE = 'Idle'
 }
 
+export interface MovementCommand {
+  id: string;
+  type: 'move' | 'place' | 'pickup' | 'home';
+  position: Position;
+  boxId?: number;
+  gcode: string;
+  description: string;
+}
+
+export interface MovementQueue {
+  commands: MovementCommand[];
+  currentIndex: number;
+  isExecuting: boolean;
+}
+
 export interface SimulationState {
   mode: SimulationMode;
   step: number;
@@ -49,4 +64,5 @@ export interface SimulationState {
   isRunning: boolean;
   currentBox?: Box;
   currentPath?: Position[];
+  movementQueue?: MovementQueue;
 }

@@ -4,10 +4,14 @@ import { Button } from './components/ui/button';
 import { ModernStorageGrid } from './components/ModernStorageGrid';
 import { ModernConfigPanel } from './components/ModernConfigPanel';
 import { StatsCards } from './components/StatsCards';
+import { MachineControlPanel } from './components/MachineControlPanel';
+import { SimulationControlPanel } from './components/SimulationControlPanel';
+
 import { NavbarConnectionStatus } from './components/warehouse/NavbarConnectionStatus';
 import { PackingAlgorithm } from './lib/packingAlgorithm';
+import { GcodeGenerator } from './lib/gcode-generator';
 import { useMoonrakerConnection } from './hooks/useMoonrakerConnection';
-import { Box, WarehouseConfig, SimulationState, SimulationMode, PackingStats, Position } from './types/warehouse';
+import { Box, WarehouseConfig, SimulationState, SimulationMode, PackingStats, Position, MovementCommand, MovementQueue } from './types/warehouse';
 
 const defaultConfig: WarehouseConfig = {
   storageWidth: 400,  // 40cm - matches printer config
@@ -21,6 +25,16 @@ const defaultConfig: WarehouseConfig = {
 function App() {
   const [config, setConfig] = useState<WarehouseConfig>(defaultConfig);
   const [appliedConfig, setAppliedConfig] = useState<WarehouseConfig>(defaultConfig);
+
+  // Calculate adaptive height based on bed dimensions
+  const getAdaptiveHeight = useCallback((config: WarehouseConfig) => {
+    // Keep heights reasonable and responsive
+    return {
+      mobile: `h-[500px]`,
+      desktop: `lg:h-[600px]`,
+      configPanel: `lg:h-[500px]`
+    };
+  }, []);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const { isConnected, setServer, connect } = useMoonrakerConnection();
   const [simulationState, setSimulationState] = useState<SimulationState>({
@@ -40,6 +54,12 @@ function App() {
   const [retrievalPaths, setRetrievalPaths] = useState<{ [boxId: number]: Position[] }>({});
   const [retrievalOrder, setRetrievalOrder] = useState<number[]>([]);
   const [animationInterval, setAnimationInterval] = useState<NodeJS.Timeout | null>(null);
+  const [movementQueue, setMovementQueue] = useState<MovementQueue>({
+    commands: [],
+    currentIndex: 0,
+    isExecuting: false
+  });
+  const [visibleBoxes, setVisibleBoxes] = useState<Set<number>>(new Set());
 
   const generateAndPackBoxes = useCallback((configToUse: WarehouseConfig) => {
     const algorithm = new PackingAlgorithm(configToUse);
@@ -69,6 +89,16 @@ function App() {
       step: 0,
       totalSteps: 0,
       isRunning: false
+    });
+
+    // Reset visible boxes
+    setVisibleBoxes(new Set());
+    
+    // Reset movement queue
+    setMovementQueue({
+      commands: [],
+      currentIndex: 0,
+      isExecuting: false
     });
   }, []);
 
@@ -173,11 +203,12 @@ function App() {
       
       if (window.confirm('Send homing command to the physical system?')) {
         await MoonrakerAPI.homeSystem();
-        alert('Homing command sent to CoreXY system');
+        alert('✅ Homing command sent successfully!');
       }
     } catch (error) {
-      console.error('Failed to home system:', error);
-      alert('Failed to home system. Check connection to Moonraker.');
+      console.error('❌ Failed to home system:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`❌ Failed to home system!\n\nError: ${errorMessage}\n\nTroubleshooting:\n• Check if Moonraker is running\n• Verify IP address and port\n• Ensure printer is connected\n• Check network connectivity`);
     }
   }, []);
 
@@ -200,6 +231,160 @@ function App() {
     });
   }, [generateAndPackBoxes]);
 
+  // Generate movement queue from packing paths
+  const generateMovementQueue = useCallback(() => {
+    const commands: MovementCommand[] = [];
+    
+    // Generate commands for each box placement
+    boxes.forEach(box => {
+      if (box.isPacked && packingPaths[box.id]) {
+        const path = packingPaths[box.id];
+        if (path.length >= 2) {
+          // Assume first position is pickup, last is placement
+          const pickupPos = path[0];
+          const placePos = path[path.length - 1];
+          
+          const boxCommands = GcodeGenerator.generateBoxPlacementCommands(
+            box.id,
+            pickupPos,
+            placePos
+          );
+          commands.push(...boxCommands);
+        }
+      }
+    });
+
+    setMovementQueue({
+      commands,
+      currentIndex: 0,
+      isExecuting: false
+    });
+
+    setSimulationState(prev => ({
+      ...prev,
+      movementQueue: {
+        commands,
+        currentIndex: 0,
+        isExecuting: false
+      }
+    }));
+  }, [boxes, packingPaths]);
+
+  // Execute single step in movement queue
+  const executeNextStep = useCallback(async () => {
+    if (movementQueue.currentIndex >= movementQueue.commands.length) return;
+
+    const command = movementQueue.commands[movementQueue.currentIndex];
+    
+    try {
+      // Import MoonrakerAPI dynamically
+      const { MoonrakerAPI } = await import('./lib/moonraker-api');
+      
+      // Send G-code command to moonraker
+      if (isConnected) {
+        console.log(`Executing command: ${command.description}`);
+        console.log(`G-code: ${command.gcode}`);
+        
+        // Send the G-code
+        await MoonrakerAPI.executeGcode(command.gcode);
+      }
+
+      // Update frontend visualization
+      if (command.type === 'place' && command.boxId) {
+        setVisibleBoxes(prev => new Set([...Array.from(prev), command.boxId!]));
+      }
+
+      // Update movement queue
+      setMovementQueue(prev => ({
+        ...prev,
+        currentIndex: prev.currentIndex + 1
+      }));
+
+      setSimulationState(prev => ({
+        ...prev,
+        step: movementQueue.currentIndex + 1,
+        totalSteps: movementQueue.commands.length
+      }));
+
+    } catch (error) {
+      console.error('Failed to execute movement command:', error);
+    }
+  }, [movementQueue, isConnected]);
+
+  // Manual control functions
+  const handleDirectionalMove = useCallback(async (direction: 'up' | 'down' | 'left' | 'right', distance: number = 10) => {
+    try {
+      const { MoonrakerAPI } = await import('./lib/moonraker-api');
+      const gcode = GcodeGenerator.manualMove(direction, distance);
+      
+      if (isConnected) {
+        console.log(`🚀 Executing manual move: ${direction} ${distance}mm`);
+        console.log(`📝 G-code commands:`);
+        console.log(gcode);
+        
+        const result = await MoonrakerAPI.executeGcode(gcode);
+        console.log(`✅ Movement completed successfully`);
+        return result;
+      } else {
+        console.warn('⚠️ Not connected to Moonraker - movement ignored');
+        throw new Error('Not connected to Moonraker');
+      }
+    } catch (error) {
+      console.error('❌ Failed to execute manual move:', error);
+      throw error; // Re-throw to allow UI to handle the error
+    }
+  }, [isConnected]);
+
+  const handleEmergencyStop = useCallback(async () => {
+    try {
+      const { MoonrakerAPI } = await import('./lib/moonraker-api');
+      
+      if (isConnected) {
+        await MoonrakerAPI.emergencyStop();
+        
+        // Stop any running animations
+        if (animationInterval) {
+          clearInterval(animationInterval);
+          setAnimationInterval(null);
+        }
+        
+        // Reset movement queue
+        setMovementQueue(prev => ({
+          ...prev,
+          isExecuting: false
+        }));
+
+        setSimulationState(prev => ({
+          ...prev,
+          isRunning: false,
+          mode: SimulationMode.IDLE
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to execute emergency stop:', error);
+    }
+  }, [isConnected, animationInterval]);
+
+  const handleTestConnection = useCallback(async () => {
+    try {
+      const { MoonrakerAPI } = await import('./lib/moonraker-api');
+      
+      console.log('Testing connection to Moonraker...');
+      const result = await MoonrakerAPI.testConnection();
+      
+      if (result.success) {
+        console.log('✅ Connection successful!', result.info);
+        alert(`✅ Connection successful!\n\nServer: ${MoonrakerAPI.getCurrentServer().host}:${MoonrakerAPI.getCurrentServer().port}\nKlippy Version: ${result.info?.klippy_version || 'Unknown'}`);
+      } else {
+        console.error('❌ Connection failed:', result.error);
+        alert(`❌ Connection failed!\n\nServer: ${MoonrakerAPI.getCurrentServer().host}:${MoonrakerAPI.getCurrentServer().port}\nError: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('❌ Connection test failed:', error);
+      alert(`❌ Connection test failed!\n\nError: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }, []);
+
   const handleConnectionChange = useCallback((ipPort: string) => {
     const [host, port] = ipPort.split(':');
     setServer(host, port);
@@ -211,6 +396,13 @@ function App() {
     generateAndPackBoxes(defaultConfig);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Generate movement queue when boxes change
+  useEffect(() => {
+    if (boxes.length > 0 && Object.keys(packingPaths).length > 0) {
+      generateMovementQueue();
+    }
+  }, [boxes, packingPaths, generateMovementQueue]);
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -255,7 +447,7 @@ function App() {
           <div className="lg:col-span-1 order-2 lg:order-1">
             <div className="flex flex-col gap-3">
               {/* Configuration Panel */}
-              <div className="h-[400px] lg:h-[460px]">
+              <div className={`h-[400px] ${getAdaptiveHeight(appliedConfig).configPanel}`}>
                 <ModernConfigPanel
                   config={config}
                   stats={stats}
@@ -272,11 +464,11 @@ function App() {
             </div>
           </div>
 
-          {/* Storage Grid - Right side */}
-          <div className="lg:col-span-3 order-1 lg:order-2">
-            <div className="h-[400px] lg:h-[483px]">
+          {/* Center - Storage Grid Only */}
+          <div className="lg:col-span-2 order-1 lg:order-2">
+            <div className={`${getAdaptiveHeight(appliedConfig).mobile} ${getAdaptiveHeight(appliedConfig).desktop}`}>
               <ModernStorageGrid
-                boxes={boxes}
+                boxes={simulationState.isRunning ? boxes.filter(box => visibleBoxes.has(box.id)) : boxes}
                 config={{
                   storageWidth: appliedConfig.storageWidth,
                   storageLength: appliedConfig.storageLength,
@@ -285,11 +477,48 @@ function App() {
                 simulationState={simulationState}
                 stats={stats}
                 onBoxClick={handleBoxClick}
-                onPlay={handlePlay}
+                onPlay={() => {
+                  generateMovementQueue();
+                  handlePlay();
+                }}
                 onPause={handlePause}
                 onReset={handleReset}
                 onHome={handleHome}
               />
+            </div>
+          </div>
+
+          {/* Right side - Machine Control and Simulation Control */}
+          <div className="lg:col-span-1 order-3 lg:order-3">
+            <div className="flex flex-col gap-3">
+              {/* Machine Control Panel */}
+              <div className="h-auto">
+                <MachineControlPanel
+                  isConnected={isConnected}
+                  isRunning={simulationState.isRunning || movementQueue.isExecuting}
+                  onDirectionalMove={handleDirectionalMove}
+                  onHome={handleHome}
+                  onStop={handleEmergencyStop}
+                  onTestConnection={handleTestConnection}
+                />
+              </div>
+              
+              {/* Simulation Control Panel */}
+              <div className="h-auto">
+                <SimulationControlPanel
+                  isRunning={simulationState.isRunning || movementQueue.isExecuting}
+                  currentStep={movementQueue.currentIndex}
+                  totalSteps={movementQueue.commands.length}
+                  simulationMode={simulationState.mode}
+                  onPlay={() => {
+                    generateMovementQueue();
+                    handlePlay();
+                  }}
+                  onPause={handlePause}
+                  onStepForward={executeNextStep}
+                  onReset={handleReset}
+                />
+              </div>
             </div>
           </div>
         </div>
